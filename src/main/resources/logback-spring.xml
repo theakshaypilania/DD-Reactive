@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
+
+    <appender name="LOGS"
+              class="ch.qos.logback.core.FileAppender">
+        <File>/opt/logs/DD-reactive/dd-reactive.log</File>
+        <append>false</append>
+        <encoder>
+            <Pattern>%d %-5p [%thread] %c{10}:%line:[%X{correlationKey}, %X{transactionKey}] - %m%n</Pattern>
+        </encoder>
+    </appender>
+
+
+    <root level="INFO">
+        <appender-ref ref="LOGS"/>
+    </root>
+</configuration>
