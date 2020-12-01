@@ -15,11 +15,13 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import reactor.blockhound.BlockHound;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.util.context.Context;
 
 import java.time.Duration;
+import java.util.Optional;
 
 
 @RestController
@@ -35,11 +37,16 @@ public class DDController {
   @GetMapping(value = "/getExperiment/{expId}")
   public Mono<Experiment> getDimensionForExperiment(@PathVariable("expId") int expId, @RequestHeader(
       "Correlation-Key") String correlationKey) {
-    MDC.clear();
     MDC.put("correlationKey", correlationKey);
-    return ddService.getExperimentData(expId)
-                    .doOnSuccess(s -> metricUtil.addToCounter("success", "", "", "", 1))
-                    .doOnError(e -> metricUtil.addToCounter("failure", "", "", "", 1));
+    return ddService.getExperimentData(expId).filter(Optional::isPresent).map(Optional::get)
+                    .doOnSuccess(s -> {
+                      metricUtil.addToCounter("success", "", "", "", 1);
+                      log.info("success");
+                    })
+                    .doOnError(e -> {
+                      metricUtil.addToCounter("failure", "", "", "", 1);
+                      log.info("failure");
+                    }).onErrorResume(e -> Mono.empty());
   }
 
   @GetMapping(value = "/getAllDimensions/{expId}")
@@ -66,6 +73,14 @@ public class DDController {
   @GetMapping(value = "/getRedis")
   public Mono<String> get(@RequestParam("key") String key) {
     return ddService.get(key);
+  }
+
+  @PostMapping(value = "/putKafka")
+  public void putInKafka(@RequestBody Dimension dimension, @RequestHeader(
+      "Correlation-Key") String correlationKey) {
+    BlockHound.install();
+    MDC.put("correlationKey", correlationKey);
+    ddService.putToKafka(dimension);
   }
 
 }

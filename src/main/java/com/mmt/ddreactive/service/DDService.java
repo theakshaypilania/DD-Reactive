@@ -23,6 +23,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 
 @Service
 @Slf4j
@@ -31,6 +32,9 @@ public class DDService {
 
   @Autowired
   private ReactiveRedisTemplate<String, String> redisTemplate;
+
+  @Autowired
+  private KafkaService kafkaService;
 
   @PostConstruct
   public void init() {
@@ -63,8 +67,13 @@ public class DDService {
     expMap.put(36, exp);
   }
 
-  public Mono<Experiment> getExperimentData(int expId) {
-    return Mono.justOrEmpty(expMap.get(expId)).defaultIfEmpty(new Experiment());
+  public Mono<Optional<Experiment>> getExperimentData(int expId) {
+    return Mono.just(Optional.ofNullable(expMap.get(expId))).flatMap(a -> {
+      if (!a.isPresent()) {
+        return Mono.error(new RuntimeException());
+      }
+      return Mono.just(a);
+    });
   }
 
   public Flux<Dimension> getAllDimensions(int expId) {
@@ -87,5 +96,9 @@ public class DDService {
 
   public Mono<String> get(String key) {
     return redisTemplate.opsForValue().get(key);
+  }
+
+  public void putToKafka(Dimension dimension) {
+    kafkaService.sendMessages(dimension.getName(), String.valueOf(dimension.getValue()));
   }
 }
