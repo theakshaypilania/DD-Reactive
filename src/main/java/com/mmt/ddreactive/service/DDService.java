@@ -2,8 +2,10 @@ package com.mmt.ddreactive.service;
 
 import com.mmt.ddreactive.LoggingHelper;
 import com.mmt.ddreactive.controller.DDController;
+import com.mmt.ddreactive.model.ExperimentTbl;
 import com.mmt.ddreactive.pojo.Dimension;
 import com.mmt.ddreactive.pojo.Experiment;
+import com.mmt.ddreactive.repository.ExperimentRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -35,6 +37,9 @@ public class DDService {
 
   @Autowired
   private KafkaService kafkaService;
+
+  @Autowired
+  private ExperimentRepository experimentRepository;
 
   @PostConstruct
   public void init() {
@@ -100,5 +105,13 @@ public class DDService {
 
   public void putToKafka(Dimension dimension) {
     kafkaService.sendMessages(dimension.getName(), String.valueOf(dimension.getValue()));
+  }
+
+  public Flux<ExperimentTbl> findAllExperiments(){
+    return experimentRepository.findAll();
+  }
+
+  public Flux<ExperimentTbl> findAllExperimentsWithIds(List<Integer> expIds){
+    return experimentRepository.findAllByIds(expIds);
   }
 }

@@ -2,6 +2,7 @@ package com.mmt.ddreactive.controller;
 
 import com.mmt.ddreactive.LoggingHelper;
 import com.mmt.ddreactive.MetricUtil;
+import com.mmt.ddreactive.model.ExperimentTbl;
 import com.mmt.ddreactive.pojo.Dimension;
 import com.mmt.ddreactive.pojo.Experiment;
 import com.mmt.ddreactive.service.DDService;
@@ -21,6 +22,7 @@ import reactor.core.publisher.Mono;
 import reactor.util.context.Context;
 
 import java.time.Duration;
+import java.util.List;
 import java.util.Optional;
 
 
@@ -72,6 +74,7 @@ public class DDController {
 
   @GetMapping(value = "/getRedis")
   public Mono<String> get(@RequestParam("key") String key) {
+    BlockHound.install();
     return ddService.get(key);
   }
 
@@ -81,6 +84,18 @@ public class DDController {
     BlockHound.install();
     MDC.put("correlationKey", correlationKey);
     ddService.putToKafka(dimension);
+  }
+
+  @GetMapping(value = "/getAllExpFromDB")
+  public Flux<ExperimentTbl> getAllExperimentsFromDB(@RequestHeader("Correlation-Key") String correlationKey) {
+    BlockHound.install();
+    return ddService.findAllExperiments();
+  }
+
+  @GetMapping(value = "/getExpWithIds")
+  public Flux<ExperimentTbl> getExperimentsFromIds(@RequestParam("expList") List<Integer> expList) {
+    BlockHound.install();
+    return ddService.findAllExperimentsWithIds(expList);
   }
 
 }
