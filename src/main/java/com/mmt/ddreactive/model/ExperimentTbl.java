@@ -7,11 +7,13 @@ import org.springframework.data.annotation.Id;
 import org.springframework.data.relational.core.mapping.Column;
 import org.springframework.data.relational.core.mapping.Table;
 
+import java.io.Serializable;
+
 @NoArgsConstructor
 @AllArgsConstructor
 @Data
 @Table("dd_reactive")
-public class ExperimentTbl {
+public class ExperimentTbl implements Serializable {
 
   @Id
   @Column("id")

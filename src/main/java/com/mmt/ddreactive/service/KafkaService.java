@@ -11,9 +11,11 @@ import org.apache.kafka.common.serialization.StringSerializer;
 import reactor.core.Disposable;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 import reactor.kafka.sender.KafkaSender;
 import reactor.kafka.sender.SenderOptions;
 import reactor.kafka.sender.SenderRecord;
+import reactor.kafka.sender.SenderResult;
 import reactor.util.context.Context;
 
 import javax.annotation.PostConstruct;
@@ -43,6 +45,7 @@ public class KafkaService {
     props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
 
     SenderOptions<String, String> senderOptions = SenderOptions.create(props);
+//    senderOptions.scheduler(Schedulers.elastic());
     sender = KafkaSender.create(senderOptions);
 
     dateFormat = new SimpleDateFormat("HH:mm:ss:SSS z dd MMM yyyy");
@@ -55,7 +58,7 @@ public class KafkaService {
 
   public void sendMessages(String key, String value) {
     String corr = MDC.get("correlationKey");
-    sender.send(Flux.just(SenderRecord.create(new ProducerRecord<>(TOPIC, key, value), value)))
+    sender.send(Flux.just(SenderRecord.create(new ProducerRecord<>(TOPIC, key, value), value))).log()
           .doOnError(e -> log.error("Send failed::{}", e.getMessage()))
           .subscribe(data -> {
             RecordMetadata metadata = data.recordMetadata();

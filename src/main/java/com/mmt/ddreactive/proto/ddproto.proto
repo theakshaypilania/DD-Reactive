@@ -1,0 +1,15 @@
+syntax = "proto3";
+package com.mmt.ddreactive.proto;
+option java_package = "com.mmt.ddreactive.protoOut";
+option java_outer_classname = "CheckProto";
+
+message Course {
+    int32 id = 1;
+    string course_name = 2;
+    repeated Student student = 3;
+}
+message Student {
+    int32 id = 1;
+    string first_name = 2;
+    string last_name = 3;
+}

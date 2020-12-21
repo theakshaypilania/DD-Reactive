@@ -5,7 +5,10 @@ import com.mmt.ddreactive.MetricUtil;
 import com.mmt.ddreactive.model.ExperimentTbl;
 import com.mmt.ddreactive.pojo.Dimension;
 import com.mmt.ddreactive.pojo.Experiment;
+import com.mmt.ddreactive.pojo.Policy;
+import com.mmt.ddreactive.protoOut.CheckProto;
 import com.mmt.ddreactive.service.DDService;
+import io.micrometer.core.annotation.Timed;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.MDC;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -23,7 +26,9 @@ import reactor.util.context.Context;
 
 import java.time.Duration;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 
 @RestController
@@ -67,16 +72,28 @@ public class DDController {
     return ddService.saveExperiment(experiment);
   }
 
-  @GetMapping(value = "/saveRedis")
-  public Mono<Boolean> save(@RequestParam("key") String key, @RequestParam("value") String value) {
-    return ddService.saveInRedis(key, value);
+  //  @GetMapping(value = "/saveRedis")
+  //  public Mono<Boolean> save(@RequestParam("key") String key, @RequestParam("value") String value) {
+  //    return ddService.saveInRedis(key, value);
+  //  }
+
+  @GetMapping(value = "/getPolicyObjL")
+  public Mono<Map<String, Policy>> get(@RequestParam("key") String key) {
+    //    BlockHound.install();
+//    return ddService.get(key);
+    Thread.getAllStackTraces()
+          .keySet()
+          .stream()
+          .collect(Collectors.toList());
+    return null;
   }
 
-  @GetMapping(value = "/getRedis")
-  public Mono<String> get(@RequestParam("key") String key) {
+
+    @GetMapping(value = "/getPolicyObjJ")
+    public Mono<Map<String, Policy>> getPolicyObjJedis(@RequestParam("key") String key) {
     BlockHound.install();
-    return ddService.get(key);
-  }
+      return ddService.getPolicyObjFromCacheFromJedis(key);
+    }
 
   @PostMapping(value = "/putKafka")
   public void putInKafka(@RequestBody Dimension dimension, @RequestHeader(
@@ -94,8 +111,13 @@ public class DDController {
 
   @GetMapping(value = "/getExpWithIds")
   public Flux<ExperimentTbl> getExperimentsFromIds(@RequestParam("expList") List<Integer> expList) {
-    BlockHound.install();
+    //    BlockHound.install();
     return ddService.findAllExperimentsWithIds(expList);
   }
 
+  @GetMapping(value = "/getProto", produces = "application/x-protobuf")
+  public Mono<CheckProto.Course> getProto(@RequestParam("id") int id) {
+    //    BlockHound.install();
+    return ddService.getProto(id);
+  }
 }

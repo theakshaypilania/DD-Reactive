@@ -1,30 +1,39 @@
 package com.mmt.ddreactive.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.mmt.ddreactive.CacheUtil;
 import com.mmt.ddreactive.LoggingHelper;
-import com.mmt.ddreactive.controller.DDController;
 import com.mmt.ddreactive.model.ExperimentTbl;
 import com.mmt.ddreactive.pojo.Dimension;
 import com.mmt.ddreactive.pojo.Experiment;
+import com.mmt.ddreactive.pojo.Policy;
+import com.mmt.ddreactive.protoOut.CheckProto;
 import com.mmt.ddreactive.repository.ExperimentRepository;
+import io.lettuce.core.cluster.RedisClusterClient;
+import io.lettuce.core.cluster.api.StatefulRedisClusterConnection;
+import io.lettuce.core.cluster.api.reactive.RedisAdvancedClusterReactiveCommands;
+import io.micrometer.core.annotation.Timed;
 import lombok.extern.slf4j.Slf4j;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.ReactiveRedisTemplate;
+import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
+import org.springframework.data.redis.stream.StreamReceiver;
 import org.springframework.stereotype.Service;
-import org.springframework.util.CollectionUtils;
+import reactor.blockhound.BlockHound;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
 import javax.annotation.PostConstruct;
+import java.io.IOException;
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 
 @Service
@@ -32,14 +41,21 @@ import java.util.Optional;
 public class DDService {
   private static Map<Integer, Experiment> expMap = new HashMap<>();
 
+  private static Map<Integer, CheckProto.Course> protoMap = new HashMap<>();
   @Autowired
-  private ReactiveRedisTemplate<String, String> redisTemplate;
-
+  ObjectMapper objectMapper;
+  @Autowired
+  CacheUtil cacheUtil;
+  //  @Autowired
+  //  RedisAdvancedClusterReactiveCommands<String, String> redis;
+  @Autowired
+  private ReactiveStringRedisTemplate redisTemplate;
   @Autowired
   private KafkaService kafkaService;
-
   @Autowired
   private ExperimentRepository experimentRepository;
+  @Value("${str}")
+  private String str;
 
   @PostConstruct
   public void init() {
@@ -70,6 +86,10 @@ public class DDService {
     exp.setId(36);
     exp.setDimList(Arrays.asList(d, e, g));
     expMap.put(36, exp);
+
+    protoMap.put(1, CheckProto.Course.newBuilder().setCourseName("testcourse").setId(1).addStudent(
+        CheckProto.Student.newBuilder().setFirstName("testFirstName").setId(2).setLastName("testLastName").build())
+                                     .build());
   }
 
   public Mono<Optional<Experiment>> getExperimentData(int expId) {
@@ -95,23 +115,76 @@ public class DDService {
     return Mono.just("Success");
   }
 
-  public Mono<Boolean> saveInRedis(String key, String value) {
-    return redisTemplate.opsForValue().set(key, value);
+  //    public Mono<Boolean> saveInRedis(String key, String value) {
+  //      return redisTemplate.opsForValue().set(key, value);
+  //    }
+
+
+  public Mono<Map<String, Policy>> get(String key) {
+    long start = System.currentTimeMillis();
+    return redisTemplate.opsForValue().get(key).map(a -> {
+      try {
+        return objectMapper.readValue(a, new TypeReference<Map<String, Policy>>() {
+        });
+      } catch (JsonProcessingException e) {
+        e.printStackTrace();
+        return null;
+      }
+    }).name("akshay").tag("aks", "hay").metrics().doOnSuccess(a -> {
+      log.error("time: {}", System.currentTimeMillis() - start);
+    });
+
+    //    return redis.get(key).map(a -> {
+    //      try {
+    //        return objectMapper.readValue(a, new TypeReference<Map<String, Policy>>() {
+    //        });
+    //      } catch (JsonProcessingException e) {
+    //        e.printStackTrace();
+    //        return null;
+    //      }
+    //    });
   }
 
-  public Mono<String> get(String key) {
-    return redisTemplate.opsForValue().get(key);
+
+  public Mono<Map<String, Policy>> getPolicyObjFromCacheFromJedis(String key) {
+    long start = System.currentTimeMillis();
+//    Flux.just("","","");
+    Mono.just("").map(a-> {
+      try {
+        Thread.sleep(4);
+        return a;
+      } catch (InterruptedException e) {
+        e.printStackTrace();
+      }
+      return Mono.just(a);
+    }).subscribeOn(Schedulers.boundedElastic());
+
+//    return Mono.fromCallable(() -> cacheUtil.get(key)).subscribeOn(Schedulers.boundedElastic()).map(a -> {
+//      try {
+//        return objectMapper.readValue(a, new TypeReference<Map<String, Policy>>() {
+//        });
+//      } catch (JsonProcessingException e) {
+//        e.printStackTrace();
+//        return null;
+//      }
+//    }).doOnSuccess( a -> {
+//      log.error("time: {}", System.currentTimeMillis() - start);
+//    });
   }
 
   public void putToKafka(Dimension dimension) {
     kafkaService.sendMessages(dimension.getName(), String.valueOf(dimension.getValue()));
   }
 
-  public Flux<ExperimentTbl> findAllExperiments(){
+  public Flux<ExperimentTbl> findAllExperiments() {
     return experimentRepository.findAll();
   }
 
-  public Flux<ExperimentTbl> findAllExperimentsWithIds(List<Integer> expIds){
+  public Flux<ExperimentTbl> findAllExperimentsWithIds(List<Integer> expIds) {
     return experimentRepository.findAllByIds(expIds);
+  }
+
+  public Mono<CheckProto.Course> getProto(int id) {
+    return Mono.just(protoMap.get(id));
   }
 }
